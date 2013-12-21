@@ -1,0 +1,139 @@
+global function named "c". 
+- this name is not informative, bad UI/API design
+- what if I do "c = 2". somehow the function isn't overwritten...
+  so then how can i expect to know what "c" references?
+
+
+introduces yet another grammar for allowed variables names. inconsistent with many existing practices.
+i get that we want to experiment in this area, but i don't think they improved anything in R
+
+
+stuck with the mindset of less keystrokes leading to parameters like "cex", "ylab", "labRow", yada yada
+- seriously, why are we still so stingy with keystrokes. readability >> keystrokes
+
+
+you could do all of this stuff in an existing language like python. what is it that R really innovated?
+in my opinion it fragmented the market. ok, it's based on matrices, i get that, but is that a WIN?
+
+
+doesn't catch syntax error on missing end ")"
+
+
+1-based indices? ok, fair enough, still contrary to almost every other language.
+x = list(1, 2, 3, 4)
+x[0]
+x[1]
+
+
+
+accessing a list item isn't what you'd expect given experience in every other language,
+it's actually a slice
+
+> x = list(1, 2, 3, 4)
+> x[0]
+list()
+> x[1]
+[[1]]
+[1] 1
+
+> x[1][1]
+[[1]]
+[1] 1
+
+> x[1][1][1]
+[[1]]
+[1] 1
+
+> x[1][1][1][1]
+[[1]]
+[1] 1
+
+> x[[1]]
+[1] 1
+> x[[1]][1]
+[1] 1
+> x[[1]][[1]]
+[1] 1
+> x[[1]]
+[1] 1
+>
+
+and what's with this double bracket notation?
+
+
+you can compare slices
+x[1:2] == 1
+[1] TRUE FALSE
+
+
+x[1:2] == c(1, 2)
+[1] TRUE TRUE
+
+
+maybe i'm missing the point behind a language based around matrices?
+
+
+
+lists can have key value relationships????!!!!!
+> person = list(name="Jane", age=24)
+
+WTF
+
+
+
+somehow this is valid syntax
+x = c(one="1")
+
+
+you can't just read a file, you have to read its lines and "paste" them together
+
+
+with 5-10 minutes of searching i still can't figure out how to just run an Rscript without starting a GUI (X11, tcl/tk).
+
+
+I see no way to install a specific version of a package. Basically environment isolation and dependency versioning are fucked in R.
+
+
+Have you seen r code written by other people? It is a mess usually. ALmost always written by someone who obviously doesn't care about programming 
+
+
+you can mix positional and named arguments and even shuffle the argument ordering:
+
+f(tens=2, 6)       # 26
+f(6, tens=2)       # 26
+f(ones=9, tens=8)  # 89
+
+
+You can even abbreviate arguments:
+
+f(tens=2, o=6)  # 26
+f(t=3, ones=9)  # 39
+f(o=9, t=4)     # 49
+
+
+
+
+somehow this code runs, although i would expect a syntax error:
+notice the "j" after the '\n
+
+pprint <- function(...) {
+  args <- list(...)
+  #reprs <- lapply(args, toString)
+  cat(encodeString(paste(args)), sep='\nj)
+}
+
+one <- function() return(1)
+
+pprint("one", 1, one, c("1", "1"))
+
+
+
+
+inconsistencies when paste(function)
+
+> foo <- function() 1
+> paste(foo)
+Error in paste(foo) :
+  cannot coerce type 'closure' to vector of type 'character'
+> paste(c(foo))
+[1] "function () \n1"
