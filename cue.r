@@ -11,7 +11,15 @@ pprint <- function(...) {
   reprs <- lapply(args, convert)
   pasted <- do.call('paste', reprs)
   encoded <- encodeString(pasted)
-  cat(encoded, sep='\n')
+
+  if (nchar(encoded) > 80) {
+    trimmed <- strtrim(encoded, 77)
+    out <- paste(trimmed, '...', sep='', collapse='')
+  } else {
+    out <- encoded
+  }
+
+  cat(out, sep='\n')
 }
 
 
@@ -36,5 +44,20 @@ walk <- function(node, level=0) {
 
 
 #expr <- parse('call-by-name.r')
-expr <- parse(text='x <- 1L; y <- 1')
+#expr <- parse(text='x <- 1L; y <- 1')
+
+text <- "
+x <- 1
+y <- 2
+
+foo <- function() {
+  bar <- function(x) return(x + 1)
+
+  y <- bar(5)
+  return(y + 3 + bar(6))
+}
+"
+
+expr <- parse(text=text)
+
 walk(expr)
