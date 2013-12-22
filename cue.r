@@ -30,10 +30,14 @@ level.print <- function(level, ...) {
 
 
 walk <- function(node, level=0) {
-  level.print(level, typeof(node), node)
-  pprint('')
+  #level.print(level, typeof(node), node)
+  #pprint('')
+  type <- typeof(node)
+  pprint(level)
+  pprint(type)
+  pprint(node)
 
-  if (typeof(node) == "language" || typeof(node) == "expression") {
+  if (type == "language" || type == "expression") {
     node <- as.list(node)
 
     for (part in node) {
@@ -54,6 +58,11 @@ foo <- function() {
   bar <- function(x) return(x + 1)
 
   y <- bar(5)
+
+  if (1 == 2) {
+    for (i in c(1, 2, 3)) {
+    }
+  }
   return(y + 3 + bar(6))
 }
 "
