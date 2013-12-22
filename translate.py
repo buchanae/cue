@@ -1,3 +1,5 @@
+import subprocess
+
 from more_itertools import chunked, peekable
 
 
@@ -44,11 +46,35 @@ class TreeNode(object):
                 yield node
 
 
-def reader(path):
-    lines = (line.strip() for line in open(path))
+def run_cue(text):
+    p = subprocess.Popen(['Rscript', 'cue.r'], stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    out, err = p.communicate(text)
+    return out
+
+
+def reader(lines):
+    lines = (line.strip() for line in lines if line)
     chunks = chunked(lines, 3)
-    for level, type_, content in chunks:
-        yield TreeNode(int(level), type_, content)
+
+    def gen():
+        for level, type_, content in chunks:
+            yield TreeNode(int(level), type_, content)
+    return peekable(gen())
+
+
+def build_tree(nodes, parent):
+    try:
+        while nodes.peek().level > parent.level:
+            if nodes.peek().level == parent.level + 1:
+                node = nodes.next()
+                node.parent = parent
+            else:
+                build_tree(nodes, node)
+
+    except StopIteration:
+        pass
 
 
 def print_tree(root):
@@ -88,20 +114,13 @@ def output_function(name, node):
 
 if __name__ == '__main__':
 
-    nodes = peekable(reader('parse-tree.txt'))
+    out = run_cue("""
+    x <- 1
 
-    def build_tree(nodes, parent):
-        try:
-            while nodes.peek().level > parent.level:
-                if nodes.peek().level == parent.level + 1:
-                    node = nodes.next()
-                    node.parent = parent
-                else:
-                    build_tree(nodes, node)
+    # comment
+    """)
 
-        except StopIteration:
-            pass
-            
+    nodes = reader(out.split('\n'))
 
     root = nodes.next()
     build_tree(nodes, root)

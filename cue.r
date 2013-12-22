@@ -36,6 +36,7 @@ walk <- function(node, level=0) {
   pprint(level)
   pprint(type)
   pprint(node)
+  pprint('')
 
   if (type == "language" || type == "expression") {
     node <- as.list(node)
@@ -67,6 +68,18 @@ foo <- function() {
 }
 "
 
-expr <- parse(text=text)
+text <- "
+x <- bar(5, 4)
+"
+
+text <- "
+x <- 1 + 2 + 3 - 7
+
+# comment
+"
+
+input <- file('stdin')
+expr <- parse(input)
+#expr <- parse(text=text)
 
 walk(expr)
