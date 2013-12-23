@@ -1,4 +1,5 @@
 import ast
+import re
 from StringIO import StringIO
 import subprocess
 import sys
@@ -76,6 +77,7 @@ class CueLanguage(CueGeneric): pass
 class CueSymbol(CueGeneric): pass
 class CueDouble(CueGeneric): pass
 class CueNumber(CueGeneric): pass
+class CueNull(CueGeneric): pass
 
 
 class CueBinOp(ast.AST):
@@ -88,7 +90,7 @@ for name in ['Assign', 'Add', 'Sub', 'Mult', 'Div', 'Mod']:
 
 
 class CueFunction(ast.AST):
-    _fields = ['left', 'right']
+    _fields = ['args', 'body', 'dontknow']
 
 
 def run_cue(text):
@@ -100,7 +102,8 @@ def run_cue(text):
 
 
 def reader(lines):
-    lines = (line.strip() for line in lines if line)
+    lines = (line.strip() for line in lines if line.startswith('.'))
+    lines = (re.sub('^\.(?:level|type|content)\s', '', line) for line in lines)
     chunks = chunked(lines, 3)
 
     def gen():
@@ -137,6 +140,7 @@ class Transformer(ast.NodeTransformer):
             'symbol': CueSymbol,
             'double': CueDouble,
             'number': CueNumber,
+            'NULL': CueNull,
         }
         cls = m[node.type]
         newnode = cls(node.level, node.type, node.content)
@@ -149,33 +153,46 @@ class Transformer(ast.NodeTransformer):
 
     def visit_CueLanguage(self, node):
         children = [self.visit(child) for child in node.children]
+        assert len(children) > 0
 
-        assert len(children) == 3
-        first, left, right = children
-        assert isinstance(first, CueSymbol)
-
+        # TODO should visit children here?
+        first = children[0]
         op_str = first.content
 
+
+        if op_str == 'function':
+            assert len(children) == 4
+            args, body, dontknow = children[1:]
+            newnode = CueFunction(args, body, dontknow)
+            return self.visit(newnode)
+
+
+        assert len(children) == 3
+        left, right = children[1:]
+        assert isinstance(first, CueSymbol)
+
+        # Assignment, which is special in R because it could either be 
+        # simple assignment, or a function definition, or ...
         if op_str == '<-' or op_str == '=':
             newnode = CueAssign(left, right)
+            return self.visit(newnode)
 
-        else:
-            
-            m = {
-                '%': ast.Mod(),
-                '*': ast.Mult(),
-                '/': ast.Div(),
-                '+': ast.Add(),
-                '-': ast.Sub(),
-            }
 
-            try:
-                op = m[op_str]
-            except KeyError:
-                raise Unknown()
+        # Simple binary operation 
+        m = {
+            '%': ast.Mod(),
+            '*': ast.Mult(),
+            '/': ast.Div(),
+            '+': ast.Add(),
+            '-': ast.Sub(),
+        }
 
-            newnode = ast.BinOp(left, op, right)
+        try:
+            op = m[op_str]
+        except KeyError:
+            raise Unknown()
 
+        newnode = ast.BinOp(left, op, right)
         return self.visit(newnode)
 
 
@@ -190,8 +207,7 @@ class Transformer(ast.NodeTransformer):
 
         # TODO could be a symbol
         if isinstance(node.right, CueFunction):
-            newnode = CueFunction(left, right)
-            return self.visit(newnode)
+            return ast.FunctionDef(node.left.content, [], [ast.Pass()], [])
 
         return ast.Assign([newleft], node.right)
 
@@ -201,9 +217,6 @@ class Transformer(ast.NodeTransformer):
     def visit_CueMult(self, node):
         return ast.BinOp(node.left, ast.Mult(), node.right)
 
-    def visit_CueFunction(self, node):
-        print node, node.children
-        
     def visit_CueSymbol(self, node):
         print node, node.children
         return node
@@ -222,6 +235,8 @@ def translate(raw):
     cue_out = run_cue(raw)
     cue_nodes = reader(cue_out.split('\n'))
 
+    print cue_out
+
     root = cue_nodes.next()
     build_tree(cue_nodes, root)
 
@@ -237,4 +252,4 @@ def translate(raw):
 
 if __name__ == '__main__':
     #print translate('x <- 1')
-    print translate('1 / 1 + 1 * 1 ^ 3')
+    print translate('n <- function() 1')

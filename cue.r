@@ -33,9 +33,9 @@ walk <- function(node, level=0) {
   #level.print(level, typeof(node), node)
   #pprint('')
   type <- typeof(node)
-  pprint(level)
-  pprint(type)
-  pprint(node)
+  pprint('.level', level)
+  pprint('.type', type)
+  pprint('.content', node)
   pprint('')
 
   if (type == "language" || type == "expression") {
