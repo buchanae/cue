@@ -1,9 +1,16 @@
+import ast
+from StringIO import StringIO
 import subprocess
+import sys
 
 from more_itertools import chunked, peekable
 
+from unparse import Unparser
 
-class TreeNode(object):
+
+class Unknown(Exception): pass
+
+class CueGeneric(ast.AST):
 
     """
     Represents a node in a tree.
@@ -11,6 +18,8 @@ class TreeNode(object):
     A tree node has a single parent, a list of children,
     and a reference to the data it contains.
     """
+
+    _fields = ['children']
 
     def __init__(self, level, type_, content):
         self._parent = None
@@ -24,7 +33,8 @@ class TreeNode(object):
         if len(content) > 40:
             content = content[:40] + '...'
 
-        return 'TreeNode({})'.format(repr((self.level, self.type, content)))
+        return '{}({})'.format(self.__class__.__name__,
+                               repr((self.level, self.type, content)))
 
     @property
     def parent(self):
@@ -45,6 +55,41 @@ class TreeNode(object):
             for node in child.walk():
                 yield node
 
+    def is_double(self):
+        return self.type == 'double'
+
+    def is_assignment(self):
+        if self.type == 'language':
+            first_child = self.children[0]
+            return (first_child.type == 'symbol' and
+                    first_child.content == '<-' or first_child.content == '=')
+
+    def is_addition(self):
+        if self.type == 'language':
+            first_child = self.children[0]
+            return (first_child.type == 'symbol' and
+                    first_child.content == '+')
+
+
+class CueExpression(CueGeneric): pass
+class CueLanguage(CueGeneric): pass
+class CueSymbol(CueGeneric): pass
+class CueDouble(CueGeneric): pass
+class CueNumber(CueGeneric): pass
+
+
+class CueBinOp(ast.AST):
+    _fields = ['left', 'right']
+
+_g = globals()
+for name in ['Assign', 'Add', 'Sub', 'Mult', 'Div', 'Mod']:
+    name = 'Cue' + name
+    _g[name] = type(name, (CueBinOp,), {})
+
+
+class CueFunction(ast.AST):
+    _fields = ['left', 'right']
+
 
 def run_cue(text):
     p = subprocess.Popen(['Rscript', 'cue.r'], stdin=subprocess.PIPE,
@@ -60,7 +105,7 @@ def reader(lines):
 
     def gen():
         for level, type_, content in chunks:
-            yield TreeNode(int(level), type_, content)
+            yield CueGeneric(int(level), type_, content)
     return peekable(gen())
 
 
@@ -83,48 +128,113 @@ def print_tree(root):
         print indent, node
 
 
-def is_assignment(node):
-    first_child = node.children[0]
-    return (node.type == 'language' and first_child.type == 'symbol' and
-            first_child.content == '<-' or first_child.content == '=')
+class Transformer(ast.NodeTransformer):
+
+    def visit_CueGeneric(self, node):
+        m = {
+            'expression': CueExpression,
+            'language': CueLanguage,
+            'symbol': CueSymbol,
+            'double': CueDouble,
+            'number': CueNumber,
+        }
+        cls = m[node.type]
+        newnode = cls(node.level, node.type, node.content)
+        newnode.children = node.children
+        return self.visit(newnode)
+
+    def visit_CueExpression(self, node):
+        print node, node.children
+        return [self.visit(child) for child in node.children]
+
+    def visit_CueLanguage(self, node):
+        children = [self.visit(child) for child in node.children]
+
+        assert len(children) == 3
+        first, left, right = children
+        assert isinstance(first, CueSymbol)
+
+        op_str = first.content
+
+        if op_str == '<-' or op_str == '=':
+            newnode = CueAssign(left, right)
+
+        else:
+            
+            m = {
+                '%': ast.Mod(),
+                '*': ast.Mult(),
+                '/': ast.Div(),
+                '+': ast.Add(),
+                '-': ast.Sub(),
+            }
+
+            try:
+                op = m[op_str]
+            except KeyError:
+                raise Unknown()
+
+            newnode = ast.BinOp(left, op, right)
+
+        return self.visit(newnode)
 
 
-def output_assignment(node):
-    left = node.children[1]
-    right = node.children[2]
-    simple = {'double'}
+    def visit_CueAssign(self, node):
+        # TODO a lot of these assertions should fail as the transformer
+        #      develops, i.e. having a symbol on the right-hand side
+        #      is totally valid, but I don't handle it yet
+        assert isinstance(node.left, CueSymbol)
+        assert not isinstance(node.right, CueSymbol)
 
-    if right.type in simple:
-        print left.content, '=', right.content
+        newleft = ast.Name(node.left.content, ast.Assign())
 
-    # Function definition
-    elif right.type == 'language':
-        output_function(left.content, right)
+        # TODO could be a symbol
+        if isinstance(node.right, CueFunction):
+            newnode = CueFunction(left, right)
+            return self.visit(newnode)
+
+        return ast.Assign([newleft], node.right)
+
+    def visit_CueAdd(self, node):
+        return ast.BinOp(node.left, ast.Add(), node.right)
+
+    def visit_CueMult(self, node):
+        return ast.BinOp(node.left, ast.Mult(), node.right)
+
+    def visit_CueFunction(self, node):
+        print node, node.children
+        
+    def visit_CueSymbol(self, node):
+        print node, node.children
+        return node
+
+    def visit_CueDouble(self, node):
+        # TODO could be float()?
+        return ast.Num(int(node.content))
+
+    def visit_CueNumber(self, node):
+        print node, node.children
+        return node
 
 
-func_tpl = '''
-def {name}():
-    body
-'''.strip()
+def translate(raw):
 
+    cue_out = run_cue(raw)
+    cue_nodes = reader(cue_out.split('\n'))
 
-def output_function(name, node):
-    print func_tpl.format(name=name)
+    root = cue_nodes.next()
+    build_tree(cue_nodes, root)
 
+    body = Transformer().visit(root)
+    tree = ast.Module(body)
+
+    print ast.dump(tree)
+
+    out = StringIO()
+    Unparser(tree, out)
+    return out.getvalue()
+    
 
 if __name__ == '__main__':
-
-    out = run_cue("""
-    x <- 1
-
-    # comment
-    """)
-
-    nodes = reader(out.split('\n'))
-
-    root = nodes.next()
-    build_tree(nodes, root)
-
-    for node in root.children:
-        if is_assignment(node):
-            output_assignment(node)
+    #print translate('x <- 1')
+    print translate('1 / 1 + 1 * 1 ^ 3')
