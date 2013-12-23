@@ -32,18 +32,30 @@ level.print <- function(level, ...) {
 walk <- function(node, level=0) {
   #level.print(level, typeof(node), node)
   #pprint('')
+
   type <- typeof(node)
   pprint('.level', level)
   pprint('.type', type)
-  pprint('.content', node)
-  pprint('')
 
   if (type == "language" || type == "expression") {
-    node <- as.list(node)
+    pprint('')
 
-    for (part in node) {
-      walk(part, level + 1)
+    # Discard the return value
+    f <- lapply(node, walk, level + 1)
+
+  } else if (type == "pairlist") {
+
+    output_pairlist <- function(name, value) {
+      pprint('.argname', name)
+      pprint('.argvalue', value)
+      pprint('.argtype', typeof(value))
     }
+    mapply(output_pairlist, names(node), node)
+    pprint('')
+
+  } else {
+    pprint('.content', node)
+    pprint('')
   }
 }
 
@@ -72,14 +84,30 @@ text <- "
 x <- bar(5, 4)
 "
 
+
 text <- "
 x <- 1 + 2 + 3 - 7
 
 # comment
 "
 
-input <- file('stdin')
-expr <- parse(input)
-#expr <- parse(text=text)
+
+text <- "
+foo <- function() 1
+function(x, bar=foo, gz=2) 100
+x + 1
+"
+
+# TODO this is an important case to consider
+#      `row.names(x) <- value`
+#      http://stat.ethz.ch/R-manual/R-devel/library/base/html/row.names.html
+#      I'm not sure how that works, and assigning to a function call seems
+#      very unintuitive to me.
+#      http://www.johnmyleswhite.com/notebook/2009/12/14/object-oriented-programming-in-r-the-setter-methods/
+
+
+#input <- file('stdin')
+#expr <- parse(input)
+expr <- parse(text=text)
 
 walk(expr)
