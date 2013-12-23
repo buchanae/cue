@@ -167,6 +167,11 @@ class Transformer(ast.NodeTransformer):
             return self.visit(newnode)
 
 
+        if op_str == 'return':
+            newnode = ast.Return(value=None)
+            return self.visit(newnode)
+
+
         assert len(children) == 3
         left, right = children[1:]
         assert isinstance(first, CueSymbol)
@@ -179,7 +184,7 @@ class Transformer(ast.NodeTransformer):
 
 
         # Simple binary operation 
-        m = {
+        binary_ops = {
             '%': ast.Mod(),
             '*': ast.Mult(),
             '/': ast.Div(),
@@ -188,7 +193,7 @@ class Transformer(ast.NodeTransformer):
         }
 
         try:
-            op = m[op_str]
+            op = binary_ops[op_str]
         except KeyError:
             raise Unknown()
 
@@ -207,7 +212,7 @@ class Transformer(ast.NodeTransformer):
 
         # TODO could be a symbol
         if isinstance(node.right, CueFunction):
-            return ast.FunctionDef(node.left.content, [], [ast.Pass()], [])
+            return ast.FunctionDef(node.left.content, [], [node.right.body], [])
 
         return ast.Assign([newleft], node.right)
 
@@ -252,4 +257,4 @@ def translate(raw):
 
 if __name__ == '__main__':
     #print translate('x <- 1')
-    print translate('n <- function() 1')
+    print translate('n <- function() return(1, 2, 3, 4)')
