@@ -35,6 +35,8 @@ translations = (
 
     ('funcname <- function() { 2; 2 }', 'def funcname():\n    2\n    2'),
 
+    ('funcname <- function() foo(1)', 'def funcname():\n    foo(1)'),
+
     ('if (1) 2', 'if 1:\n    2'),
 
     ('if (1) { 2; 2 }', 'if 1:\n    2\n    2'),

@@ -256,6 +256,6 @@ def translate(raw):
 if __name__ == '__main__':
     #print translate('if (1) { 2; 2; 2; }')
     #print translate('funcname <- function(x) { 2; 2 }')
-    print translate('funcname <- function() 1')
+    print translate('funcname <- function() foo(1)')
     #print translate('1, 2')
     #print translate('foo <- function(x, baz=2, bar=4) { return(x) }; foo(1, bar=3)')
