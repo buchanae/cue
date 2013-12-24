@@ -69,7 +69,6 @@ class CueFunction(ast.AST):
 
     def __init__(self, args, body, dontknow):
         self.args = args
-        # TODO parse out the body statements
         self.body = [body]
 
 class CueAssign(ast.AST):
@@ -129,7 +128,8 @@ class Transformer(ast.NodeTransformer):
         return self.visit(newnode)
 
     def visit_CueExpression(self, node):
-        return [self.visit(child) for child in node.children]
+        body = [self.visit(child) for child in node.children]
+        return ast.Module(body)
 
     def visit_CueSymbol(self, node):
         op_str = node.content
@@ -270,21 +270,14 @@ class Transformer(ast.NodeTransformer):
 
 
     def visit_CueAssign(self, node):
-        # TODO a lot of these assertions should fail as the transformer
-        #      develops, i.e. having a symbol on the right-hand side
-        #      is totally valid, but I don't handle it yet
-        assert not isinstance(node.right, CueSymbol)
-
         newleft = ast.Name(node.left.id, ast.Store())
 
-        # TODO could be a symbol
-        # TODO move to visit_CueFunction
         if isinstance(node.right, ast.FunctionDef):
             node.right.name = node.left.id
             return node.right
 
-
         return ast.Assign([newleft], node.right)
+
 
     def visit_CueFunction(self, node):
         arguments = []
@@ -307,8 +300,10 @@ class Transformer(ast.NodeTransformer):
 
         return ast.FunctionDef(None, arguments, body, [])
 
+
     def visit_CueAdd(self, node):
         return ast.BinOp(node.left, ast.Add(), node.right)
+
 
     def visit_CueMult(self, node):
         return ast.BinOp(node.left, ast.Mult(), node.right)
@@ -318,8 +313,7 @@ def translate_cue_code(cue_code):
     nodes = reader(cue_code.split('\n'), CueGeneric)
     root = nodes.next()
 
-    body = Transformer().visit(root)
-    tree = ast.Module(body)
+    tree = Transformer().visit(root)
 
     print ast.dump(tree)
 
