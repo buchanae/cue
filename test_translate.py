@@ -3,7 +3,12 @@ from nose.tools import assert_raises, eq_
 from translate import translate, CueError
 
 
+# TODO consider comparing to ast.dump() so that you know tree is exact
+#      not just syntax
+
 translations = (
+
+    ('(1)', '1'),
 
     ('n <- 1', 'n = 1'),
 
@@ -38,6 +43,8 @@ translations = (
     ('funcname <- function() foo(1)', 'def funcname():\n    foo(1)'),
 
     ('foo(c, d, 1)', 'foo(c, d, 1)'),
+
+    ('foo(bar(x), 2)', 'foo(bar(x), 2)'),
 
     ('if (1) 2', 'if 1:\n    2'),
 

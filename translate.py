@@ -174,6 +174,9 @@ class Transformer(ast.NodeTransformer):
         elif op_str == '{':
             newnode = CueBody(rest)
 
+        elif op_str == '(':
+            newnode = rest[0]
+
         elif op_str == 'return':
             if not rest:
                 newnode = ast.Return(value=None)
@@ -267,7 +270,9 @@ def translate(raw):
     
 
 if __name__ == '__main__':
-    print translate('foo(c, d, 2)')
+    print translate('(1 + 2) + 3')
+    #print translate('(1)')
+    #print translate('foo(c, d, 2)')
     #print translate('if (foo(c, d)) { 2; 2; 2; }')
     #print translate('funcname <- function(x) { 2; 2 }')
     #print translate('funcname <- function() foo(1)')
