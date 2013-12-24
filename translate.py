@@ -156,6 +156,12 @@ class Transformer(ast.NodeTransformer):
             '!': ast.Not,
         }
 
+        # TODO not handling the vectorized ops '&', '|', etc.
+        bool_ops = {
+            '&&': ast.And,
+            '||': ast.Or,
+        }
+
         assert isinstance(first, CueSymbol)
 
         if op_str in binary_ops:
@@ -183,6 +189,12 @@ class Transformer(ast.NodeTransformer):
             operand = rest[0]
             op_cls = unary_ops[op_str]
             newnode = ast.UnaryOp(op_cls(), operand)
+
+        elif op_str in bool_ops:
+            assert len(rest) == 2
+            left, right = rest
+            op_cls = bool_ops[op_str]
+            newnode = ast.BoolOp(op_cls(), [left, right])
 
         elif op_str == 'function':
             assert len(rest) == 3
@@ -299,7 +311,8 @@ def translate(raw):
     
 
 if __name__ == '__main__':
-    print translate('!1')
+    print translate('1 && 2')
+    #print translate('!1')
     #print translate('1 != 1')
     #print translate('1 < 2')
     #print translate('(1 + 2) + 3')
