@@ -106,8 +106,8 @@ x + 1
 #      http://www.johnmyleswhite.com/notebook/2009/12/14/object-oriented-programming-in-r-the-setter-methods/
 
 
-#input <- file('stdin')
-#expr <- parse(input)
-expr <- parse(text=text)
+input <- file('stdin')
+expr <- parse(input)
+#expr <- parse(text=text)
 
 walk(expr)

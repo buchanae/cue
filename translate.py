@@ -1,11 +1,8 @@
 import ast
-import re
 from StringIO import StringIO
 import subprocess
-import sys
 
-from more_itertools import chunked, peekable
-
+from reader import reader
 from unparse import Unparser
 
 
@@ -20,65 +17,32 @@ class CueGeneric(ast.AST):
     and a reference to the data it contains.
     """
 
-    _fields = ['children']
-
-    def __init__(self, level, type_, content):
-        self._parent = None
-        self.children = []
+    def __init__(self, level, type_, recs):
         self.level = level
         self.type = type_
-        self.content = content
+        self.recs = recs
+        self.children = []
+
+        self.content = None
+        for rec in recs:
+            if rec.name == 'content':
+                self.content = rec.value
+            
 
     def __repr__(self):
-        content = self.content
-        if len(content) > 40:
-            content = content[:40] + '...'
-
-        return '{}({})'.format(self.__class__.__name__,
-                               repr((self.level, self.type, content)))
-
-    @property
-    def parent(self):
-        return self._parent
-
-    @parent.setter
-    def parent(self, value):
-        # If this node already has a parent,
-        # delete this node from that parent's children
-        if self._parent:
-            self._parent.children.remove(self)
-        self._parent = value
-        self._parent.children.append(self)
-
-    def walk(self):
-        yield self
-        for child in self.children:
-            for node in child.walk():
-                yield node
-
-    def is_double(self):
-        return self.type == 'double'
-
-    def is_assignment(self):
-        if self.type == 'language':
-            first_child = self.children[0]
-            return (first_child.type == 'symbol' and
-                    first_child.content == '<-' or first_child.content == '=')
-
-    def is_addition(self):
-        if self.type == 'language':
-            first_child = self.children[0]
-            return (first_child.type == 'symbol' and
-                    first_child.content == '+')
+        return '{}({})'.format(self.__class__.__name__, self.type)
 
 
-class CueExpression(CueGeneric): pass
-class CueLanguage(CueGeneric): pass
-class CueSymbol(CueGeneric): pass
-class CueDouble(CueGeneric): pass
-class CueNumber(CueGeneric): pass
-class CueNull(CueGeneric): pass
+class CueNull(ast.AST): pass
 
+class CueExpression(ast.AST):
+    _fields = ['children']
+
+class CueLanguage(ast.AST):
+    _fields = ['children']
+
+class CueSymbol(ast.AST):
+    _fields = ['content']
 
 class CueBinOp(ast.AST):
     _fields = ['left', 'right']
@@ -101,50 +65,26 @@ def run_cue(text):
     return out
 
 
-def reader(lines):
-    lines = (line.strip() for line in lines if line.startswith('.'))
-    lines = (re.sub('^\.(?:level|type|content)\s', '', line) for line in lines)
-    chunks = chunked(lines, 3)
-
-    def gen():
-        for level, type_, content in chunks:
-            yield CueGeneric(int(level), type_, content)
-    return peekable(gen())
-
-
-def build_tree(nodes, parent):
-    try:
-        while nodes.peek().level > parent.level:
-            if nodes.peek().level == parent.level + 1:
-                node = nodes.next()
-                node.parent = parent
-            else:
-                build_tree(nodes, node)
-
-    except StopIteration:
-        pass
-
-
-def print_tree(root):
-    for node in root.walk():
-        indent = '  ' * node.level
-        print indent, node
-
-
 class Transformer(ast.NodeTransformer):
 
     def visit_CueGeneric(self, node):
-        m = {
-            'expression': CueExpression,
-            'language': CueLanguage,
-            'symbol': CueSymbol,
-            'double': CueDouble,
-            'number': CueNumber,
-            'NULL': CueNull,
-        }
-        cls = m[node.type]
-        newnode = cls(node.level, node.type, node.content)
-        newnode.children = node.children
+
+        if node.type == 'symbol':
+            newnode = CueSymbol(node.content)
+
+        elif node.type == 'language':
+            newnode = CueLanguage(node.children)
+
+        elif node.type == 'expression':
+            newnode = CueExpression(node.children)
+
+        elif node.type == 'NULL':
+            newnode = CueNull()
+
+        elif node.type == 'double':
+            # TODO could be float()?
+            newnode = ast.Num(int(node.content))
+
         return self.visit(newnode)
 
     def visit_CueExpression(self, node):
@@ -175,7 +115,7 @@ class Transformer(ast.NodeTransformer):
         assert isinstance(first, CueSymbol)
 
         if op_str in binary_ops:
-            assert len(rest) == 3
+            assert len(rest) == 2
             left, right = rest
 
             op_cls = binary_ops[op_str]
@@ -198,11 +138,14 @@ class Transformer(ast.NodeTransformer):
             newnode = ast.Return(value=None)
 
         else:
+            # TODO this allows invalid function names,
+            #      and doesn't catch symbols that aren't functions,
+            #      such as '(' and '{'
+
             # TODO wouldn't support foo(1)(2)
             name = ast.Name(op_str, ast.Load())
             print rest
             newnode = ast.Call(name, rest, [], None, None)
-
 
         return self.visit(newnode)
 
@@ -228,28 +171,14 @@ class Transformer(ast.NodeTransformer):
     def visit_CueMult(self, node):
         return ast.BinOp(node.left, ast.Mult(), node.right)
 
-    def visit_CueSymbol(self, node):
-        print node, node.children
-        return node
-
-    def visit_CueDouble(self, node):
-        # TODO could be float()?
-        return ast.Num(int(node.content))
-
-    def visit_CueNumber(self, node):
-        print node, node.children
-        return node
-
 
 def translate(raw):
 
     cue_out = run_cue(raw)
-    cue_nodes = reader(cue_out.split('\n'))
-
     print cue_out
 
-    root = cue_nodes.next()
-    build_tree(cue_nodes, root)
+    nodes = reader(cue_out.split('\n'), CueGeneric)
+    root = nodes.next()
 
     body = Transformer().visit(root)
     tree = ast.Module(body)
@@ -262,6 +191,6 @@ def translate(raw):
     
 
 if __name__ == '__main__':
-    #print translate('x <- 1')
+    print translate('x <- 1')
     #print translate('n <- function() return(1, 2, 3, 4)')
-    print translate('foo <- function(x, baz=2, bar=4) { return(x) }; foo(1, bar=3)')
+    #print translate('foo <- function(x, baz=2, bar=4) { return(x) }; foo(1, bar=3)')
