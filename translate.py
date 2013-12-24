@@ -149,6 +149,7 @@ class Transformer(ast.NodeTransformer):
             '>': ast.Gt,
             '>=': ast.GtE,
             '==': ast.Eq,
+            '!=': ast.NotEq,
         }
 
         assert isinstance(first, CueSymbol)
@@ -289,7 +290,7 @@ def translate(raw):
     
 
 if __name__ == '__main__':
-    print translate('"foo"')
+    print translate('1 != 1')
     #print translate('1 < 2')
     #print translate('(1 + 2) + 3')
     #print translate('(1)')
