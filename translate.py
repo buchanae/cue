@@ -68,7 +68,12 @@ for name in ['Assign', 'Add', 'Sub', 'Mult', 'Div', 'Mod']:
 
 
 class CueFunction(ast.AST):
-    _fields = ['args', 'body', 'dontknow']
+    _fields = ['args', 'body']
+
+    def __init__(self, args, body, dontknow):
+        self.args = args
+        # TODO parse out the body statements
+        self.body = [body]
 
 
 def run_cue(text):
@@ -190,7 +195,16 @@ class Transformer(ast.NodeTransformer):
                 args = [ast.Name(name, ast.Param()) for name, value, type_ in argslist]
                 arguments = ast.arguments(args, None, None, [])
 
-            return ast.FunctionDef(node.left.content, arguments, [node.right.body], [])
+            # TODO should probably do this stuff in visit_CueFunction
+            body = []
+            for n in node.right.body:
+                if isinstance(n, ast.expr):
+                    n = ast.Expr(n)
+
+                assert isinstance(n, ast.stmt)
+                body.append(n)
+
+            return ast.FunctionDef(node.left.content, arguments, body, [])
 
         return ast.Assign([newleft], node.right)
 
