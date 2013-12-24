@@ -35,6 +35,9 @@ class CueGeneric(ast.AST):
 
 class CueNull(ast.AST): pass
 
+class CueBody(ast.AST):
+    _fields = ['exprs']
+
 class CueExpression(ast.AST):
     _fields = ['children']
 
@@ -155,6 +158,19 @@ class Transformer(ast.NodeTransformer):
             args, body, dontknow = rest
             newnode = CueFunction(args, body, dontknow)
 
+        elif op_str == 'if':
+            assert len(rest) == 2
+            cond, body = rest
+
+            if isinstance(body, ast.expr):
+                body = ast.Expr(body)
+            elif isinstance(body, CueBody):
+                body = [ast.Expr(e) for e in body.exprs]
+
+            newnode = ast.If(rest[0], body, None)
+
+        elif op_str == '{':
+            newnode = CueBody(rest)
 
         elif op_str == 'return':
             if not rest:
@@ -235,6 +251,6 @@ def translate(raw):
     
 
 if __name__ == '__main__':
-    print translate('func <- function(x) return(1)')
+    print translate('if (1) { 2; 2; 2; }')
     #print translate('1, 2')
     #print translate('foo <- function(x, baz=2, bar=4) { return(x) }; foo(1, bar=3)')

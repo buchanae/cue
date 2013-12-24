@@ -25,9 +25,6 @@ translations = (
 
     ('1 - 2 - 3', '((1 - 2) - 3)'),
 
-
-
-    # TODO unparse should add a newline to be nice
     ('funcname <- function() 1', 'def funcname():\n    1'),
 
     ('funcname <- function() return(1)', 'def funcname():\n    return 1'),
@@ -36,7 +33,9 @@ translations = (
 
     ('funcname <- function(x) return()', 'def funcname(x):\n    return'),
 
-    #'1, 2',
+    ('if (1) 2', 'if 1:\n    2'),
+
+    ('if (1) { 2; 2 }', 'if 1:\n    2\n    2'),
 )
 
 
