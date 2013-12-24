@@ -253,22 +253,14 @@ class Transformer(ast.NodeTransformer):
 
         elif isinstance(op, ast.Name):
             # TODO this allows invalid function names,
-            #      and doesn't catch symbols that aren't functions,
-            #      such as '(' and 'read.csv'
+            #      such as 'read.csv'
 
             # TODO wouldn't support foo(1)(2)
 
             args = []
             for r in rest:
-                if isinstance(r, CueSymbol):
-                    n = ast.Name(r.content, ast.Load())
-                    args.append(n)
-
-                elif isinstance(r, ast.expr):
-                    args.append(r)
-
-                else:
-                    raise UnknownError()
+                assert isinstance(r, ast.expr)
+                args.append(r)
 
             newnode = ast.Call(op, args, [], None, None)
 
@@ -318,12 +310,8 @@ class Transformer(ast.NodeTransformer):
         return ast.BinOp(node.left, ast.Mult(), node.right)
 
 
-def translate(raw):
-
-    cue_out = run_cue(raw)
-    print cue_out
-
-    nodes = reader(cue_out.split('\n'), CueGeneric)
+def translate_cue_code(cue_code):
+    nodes = reader(cue_code.split('\n'), CueGeneric)
     root = nodes.next()
 
     body = Transformer().visit(root)
@@ -334,6 +322,12 @@ def translate(raw):
     out = StringIO()
     Unparser(tree, out)
     return out.getvalue()
+
+
+def translate(raw):
+    cue_out = run_cue(raw)
+    print cue_out
+    return translate_cue_code(cue_out)
     
 
 if __name__ == '__main__':

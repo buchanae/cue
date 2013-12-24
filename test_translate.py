@@ -1,6 +1,15 @@
+import hashlib
+import os
+
 from nose.tools import assert_raises, eq_
 
-from translate import translate, CueError
+from translate import translate, translate_cue_code, CueError, run_cue
+
+
+CACHE_DIR = '.cue_output_test_cache'
+
+if not os.path.exists(CACHE_DIR):
+    os.mkdir(CACHE_DIR)
 
 
 # TODO consider comparing to ast.dump() so that you know tree is exact
@@ -79,7 +88,24 @@ translations = (
 
 
 def check_translation(raw, expected):
-    eq_(translate(raw).lstrip('\n'), expected)
+    # Cache the cue output because it's fairly slow to start a cue process
+    # for every test
+    #
+    # TODO include some kind of cue version in this hash, so that the cache
+    #      is invalidated by updates to cue.r and/or the cue runner
+    m = hashlib.md5()
+    m.update(raw)
+    hashcode = m.hexdigest()
+    cache_path = os.path.join(CACHE_DIR, hashcode)
+
+    if os.path.exists(cache_path):
+        cue_code = open(cache_path).read()
+    else:
+        cue_code = run_cue(raw)
+        with open(cache_path, 'w') as fh:
+            fh.write(cue_code)
+
+    eq_(translate_cue_code(cue_code).lstrip('\n'), expected)
 
 def test_translations():
     for raw, expected in translations:
