@@ -1,9 +1,9 @@
-from nose.tools import eq_
+from nose.tools import assert_raises, eq_
 
-from translate import translate
+from translate import translate, CueError
 
 
-tests = (
+translations = (
 
     ('n <- 1', 'n = 1'),
 
@@ -36,7 +36,6 @@ tests = (
 
     ('funcname <- function(x) return()', 'def funcname(x):\n    return'),
 
-    #print translate('n <- function() return(1, 2, 3, 4)')
     #'1, 2',
 )
 
@@ -44,6 +43,19 @@ tests = (
 def check_translation(raw, expected):
     eq_(translate(raw).lstrip('\n'), expected)
 
-def test_all():
-    for raw, expected in tests:
+def test_translations():
+    for raw, expected in translations:
         yield check_translation, raw, expected
+
+
+errors = (
+    '1, 2',
+)
+
+def expect_cue_error(raw):
+    with assert_raises(CueError):
+        translate(raw)
+
+def test_errors():
+    for raw in errors:
+        yield expect_cue_error, raw

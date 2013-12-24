@@ -8,8 +8,6 @@ from reader import reader
 from unparse import Unparser
 
 
-class Unknown(Exception): pass
-
 class CueGeneric(ast.AST):
 
     """
@@ -61,11 +59,7 @@ class CueSymbol(ast.AST):
 class CueBinOp(ast.AST):
     _fields = ['left', 'right']
 
-_g = globals()
-for name in ['Assign', 'Add', 'Sub', 'Mult', 'Div', 'Mod']:
-    name = 'Cue' + name
-    _g[name] = type(name, (CueBinOp,), {})
-
+class CueAssign(CueBinOp): pass
 
 class CueFunction(ast.AST):
     _fields = ['args', 'body']
@@ -76,11 +70,16 @@ class CueFunction(ast.AST):
         self.body = [body]
 
 
+class CueError(Exception): pass
+
 def run_cue(text):
     p = subprocess.Popen(['Rscript', 'cue.r'], stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     out, err = p.communicate(text)
+    if err:
+        raise CueError(err)
+
     return out
 
 
@@ -237,4 +236,5 @@ def translate(raw):
 
 if __name__ == '__main__':
     print translate('func <- function(x) return(1)')
+    #print translate('1, 2')
     #print translate('foo <- function(x, baz=2, bar=4) { return(x) }; foo(1, bar=3)')
