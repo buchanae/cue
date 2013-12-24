@@ -215,11 +215,14 @@ class Transformer(ast.NodeTransformer):
             # TODO should probably do this stuff in visit_CueFunction
             body = []
             for n in node.right.body:
-                if isinstance(n, ast.expr):
+                if isinstance(n, ast.stmt):
+                    body.append(n)
+                elif isinstance(n, ast.expr):
                     n = ast.Expr(n)
-
-                assert isinstance(n, ast.stmt)
-                body.append(n)
+                    body.append(n)
+                elif isinstance(n, CueBody):
+                    for expr in n.exprs:
+                        body.append(ast.Expr(expr))
 
             return ast.FunctionDef(node.left.content, arguments, body, [])
 
@@ -251,6 +254,8 @@ def translate(raw):
     
 
 if __name__ == '__main__':
-    print translate('if (1) { 2; 2; 2; }')
+    #print translate('if (1) { 2; 2; 2; }')
+    #print translate('funcname <- function(x) { 2; 2 }')
+    print translate('funcname <- function() 1')
     #print translate('1, 2')
     #print translate('foo <- function(x, baz=2, bar=4) { return(x) }; foo(1, bar=3)')
