@@ -84,6 +84,8 @@ translations = (
     ('1 && 2 || 3', '((1 and 2) or 3)'),
 
     ('1 %in% foo', '(1 in foo)'),
+
+    ('foo(1)(bar())', 'foo(1)(bar())'),
 )
 
 

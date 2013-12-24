@@ -134,7 +134,6 @@ class Transformer(ast.NodeTransformer):
     def visit_CueSymbol(self, node):
         op_str = node.content
 
-
         op_map = {
             # Binary
             '<-': CueAssignOp,
@@ -250,7 +249,7 @@ class Transformer(ast.NodeTransformer):
                 value = rest[0]
                 newnode = ast.Return(value=value)
 
-        elif isinstance(op, ast.Name):
+        elif isinstance(op, ast.Name) or isinstance(op, ast.Call):
             # TODO this allows invalid function names,
             #      such as 'read.csv'
 
@@ -264,7 +263,7 @@ class Transformer(ast.NodeTransformer):
             newnode = ast.Call(op, args, [], None, None)
 
         else:
-            raise UnknownError()
+            raise UnknownError(op)
 
         return self.visit(newnode)
 
@@ -331,4 +330,5 @@ def translate(raw):
 if __name__ == '__main__':
     #print translate('1 %in% foo')
     #print translate('funcname <- function(x) return()')
-    print translate('foo <- bar')
+    #print translate('foo <- bar')
+    print translate('foo(1)(bar())')
