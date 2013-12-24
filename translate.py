@@ -184,7 +184,6 @@ class Transformer(ast.NodeTransformer):
 
 
     def visit_CueLanguage(self, node):
-        # TODO should visit children here?
         children = [self.visit(child) for child in node.children]
         assert len(children) > 0
 
@@ -280,28 +279,33 @@ class Transformer(ast.NodeTransformer):
 
         # TODO could be a symbol
         # TODO move to visit_CueFunction
-        if isinstance(node.right, CueFunction):
-            arguments = []
+        if isinstance(node.right, ast.FunctionDef):
+            node.right.name = node.left.id
+            return node.right
 
-            if isinstance(node.right.args, CuePairlist):
-                argslist = node.right.args.argslist
-                args = [ast.Name(name, ast.Param()) for name, value, type_ in argslist]
-                arguments = ast.arguments(args, None, None, [])
-
-            body = []
-            for n in node.right.body:
-                if isinstance(n, ast.stmt):
-                    body.append(n)
-                elif isinstance(n, ast.expr):
-                    n = ast.Expr(n)
-                    body.append(n)
-                elif isinstance(n, CueBody):
-                    for expr in n.exprs:
-                        body.append(ast.Expr(expr))
-
-            return ast.FunctionDef(node.left.id, arguments, body, [])
 
         return ast.Assign([newleft], node.right)
+
+    def visit_CueFunction(self, node):
+        arguments = []
+
+        if isinstance(node.args, CuePairlist):
+            argslist = node.args.argslist
+            args = [ast.Name(name, ast.Param()) for name, value, type_ in argslist]
+            arguments = ast.arguments(args, None, None, [])
+
+        body = []
+        for n in node.body:
+            if isinstance(n, ast.stmt):
+                body.append(n)
+            elif isinstance(n, ast.expr):
+                n = ast.Expr(n)
+                body.append(n)
+            elif isinstance(n, CueBody):
+                for expr in n.exprs:
+                    body.append(ast.Expr(expr))
+
+        return ast.FunctionDef(None, arguments, body, [])
 
     def visit_CueAdd(self, node):
         return ast.BinOp(node.left, ast.Add(), node.right)
@@ -333,4 +337,4 @@ def translate(raw):
 if __name__ == '__main__':
     #print translate('1 %in% foo')
     #print translate('funcname <- function(x) return()')
-    print translate('foo(c, d, 1)')
+    print translate('foo <- bar')
