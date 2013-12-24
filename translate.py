@@ -168,6 +168,9 @@ class Transformer(ast.NodeTransformer):
             '&&': ast.And,
             '||': ast.Or,
 
+            # Indexing
+            '[[': ast.Subscript,
+
             # Other
             'function': CueFunctionOp,
             'if': CueIfOp,
@@ -188,9 +191,6 @@ class Transformer(ast.NodeTransformer):
 
         op = children[0]
         rest = children[1:]
-
-        # TODO could break these out into their own nodes,
-        #      but it doesn't seem critical
 
         if isinstance(op, ast.operator):
             assert len(rest) == 2
@@ -248,6 +248,11 @@ class Transformer(ast.NodeTransformer):
                 assert len(rest) == 1
                 value = rest[0]
                 newnode = ast.Return(value=value)
+
+        elif isinstance(op, ast.Subscript):
+            assert len(rest) == 2
+            op.value, op.slice = rest
+            newnode = op
 
         elif isinstance(op, ast.Name) or isinstance(op, ast.Call):
             # TODO this allows invalid function names,
@@ -331,4 +336,5 @@ if __name__ == '__main__':
     #print translate('1 %in% foo')
     #print translate('funcname <- function(x) return()')
     #print translate('foo <- bar')
-    print translate('foo(1)(bar())')
+    #print translate('foo(1)(bar())')
+    print translate('foo[[1]]')

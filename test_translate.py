@@ -86,6 +86,8 @@ translations = (
     ('1 %in% foo', '(1 in foo)'),
 
     ('foo(1)(bar())', 'foo(1)(bar())'),
+
+    ('foo[[1]]', 'foo[1]'),
 )
 
 
