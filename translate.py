@@ -152,6 +152,10 @@ class Transformer(ast.NodeTransformer):
             '!=': ast.NotEq,
         }
 
+        unary_ops = {
+            '!': ast.Not,
+        }
+
         assert isinstance(first, CueSymbol)
 
         if op_str in binary_ops:
@@ -174,6 +178,11 @@ class Transformer(ast.NodeTransformer):
             op_cls = comparison_ops[op_str]
             newnode = ast.Compare(left, [op_cls()], [right])
 
+        elif op_str in unary_ops:
+            assert len(rest) == 1
+            operand = rest[0]
+            op_cls = unary_ops[op_str]
+            newnode = ast.UnaryOp(op_cls(), operand)
 
         elif op_str == 'function':
             assert len(rest) == 3
@@ -290,7 +299,8 @@ def translate(raw):
     
 
 if __name__ == '__main__':
-    print translate('1 != 1')
+    print translate('!1')
+    #print translate('1 != 1')
     #print translate('1 < 2')
     #print translate('(1 + 2) + 3')
     #print translate('(1)')

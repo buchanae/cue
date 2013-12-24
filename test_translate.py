@@ -65,6 +65,8 @@ translations = (
     ("'foo'", "'foo'"),
 
     ("foo('bar')", "foo('bar')"),
+
+    ('!1', '(not 1)'),
 )
 
 
