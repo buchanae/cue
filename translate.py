@@ -2,6 +2,8 @@ import ast
 from StringIO import StringIO
 import subprocess
 
+from more_itertools import chunked
+
 from reader import reader
 from unparse import Unparser
 
@@ -37,6 +39,18 @@ class CueNull(ast.AST): pass
 
 class CueExpression(ast.AST):
     _fields = ['children']
+
+class CuePairlist(ast.AST):
+    _fields = ['argslist']
+
+    def __init__(self, recs):
+        self.argslist = []
+
+        # TODO make these separate nodes
+        rec_values = (rec.value for rec in recs)
+        for name, value, type_ in chunked(rec_values, 3):
+            self.argslist.append((name, value, type_))
+
 
 class CueLanguage(ast.AST):
     _fields = ['children']
@@ -84,6 +98,9 @@ class Transformer(ast.NodeTransformer):
         elif node.type == 'double':
             # TODO could be float()?
             newnode = ast.Num(int(node.content))
+
+        elif node.type == 'pairlist':
+            newnode = CuePairlist(node.recs)
 
         return self.visit(newnode)
 
@@ -134,7 +151,6 @@ class Transformer(ast.NodeTransformer):
 
 
         elif op_str == 'return':
-            print 'return', rest
             if not rest:
                 newnode = ast.Return(value=None)
             else:
@@ -166,7 +182,15 @@ class Transformer(ast.NodeTransformer):
 
         # TODO could be a symbol
         if isinstance(node.right, CueFunction):
-            return ast.FunctionDef(node.left.content, [], [node.right.body], [])
+            arguments = []
+
+            if isinstance(node.right.args, CuePairlist):
+                print 'function', node.right.args.argslist
+                argslist = node.right.args.argslist
+                args = [ast.Name(name, ast.Param()) for name, value, type_ in argslist]
+                arguments = ast.arguments(args, None, None, [])
+
+            return ast.FunctionDef(node.left.content, arguments, [node.right.body], [])
 
         return ast.Assign([newleft], node.right)
 
@@ -196,5 +220,5 @@ def translate(raw):
     
 
 if __name__ == '__main__':
-    print translate('func <- function() return(1)')
+    print translate('func <- function(x) return(1)')
     #print translate('foo <- function(x, baz=2, bar=4) { return(x) }; foo(1, bar=3)')

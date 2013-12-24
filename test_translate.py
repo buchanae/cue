@@ -23,6 +23,8 @@ tests = (
 
     ('funcname <- function() return()', 'def funcname():\n    return'),
 
+    ('funcname <- function(x) return()', 'def funcname(x):\n    return'),
+
     #print translate('n <- function() return(1, 2, 3, 4)')
     #'1, 2',
 )
