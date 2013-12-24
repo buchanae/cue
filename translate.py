@@ -8,6 +8,8 @@ from reader import reader
 from unparse import Unparser
 
 
+class UnknownError(Exception): pass
+
 class CueGeneric(ast.AST):
 
     """
@@ -183,12 +185,24 @@ class Transformer(ast.NodeTransformer):
         else:
             # TODO this allows invalid function names,
             #      and doesn't catch symbols that aren't functions,
-            #      such as '(' and '{'
+            #      such as '(' and 'read.csv'
 
             # TODO wouldn't support foo(1)(2)
             name = ast.Name(op_str, ast.Load())
-            print rest
-            newnode = ast.Call(name, rest, [], None, None)
+
+            args = []
+            for r in rest:
+                if isinstance(r, CueSymbol):
+                    n = ast.Name(r.content, ast.Load())
+                    args.append(n)
+
+                elif isinstance(r, ast.expr):
+                    args.append(r)
+
+                else:
+                    raise UnknownError()
+
+            newnode = ast.Call(name, args, [], None, None)
 
         return self.visit(newnode)
 
@@ -207,7 +221,6 @@ class Transformer(ast.NodeTransformer):
             arguments = []
 
             if isinstance(node.right.args, CuePairlist):
-                print 'function', node.right.args.argslist
                 argslist = node.right.args.argslist
                 args = [ast.Name(name, ast.Param()) for name, value, type_ in argslist]
                 arguments = ast.arguments(args, None, None, [])
@@ -254,8 +267,9 @@ def translate(raw):
     
 
 if __name__ == '__main__':
-    #print translate('if (1) { 2; 2; 2; }')
+    print translate('foo(c, d, 2)')
+    #print translate('if (foo(c, d)) { 2; 2; 2; }')
     #print translate('funcname <- function(x) { 2; 2 }')
-    print translate('funcname <- function() foo(1)')
+    #print translate('funcname <- function() foo(1)')
     #print translate('1, 2')
     #print translate('foo <- function(x, baz=2, bar=4) { return(x) }; foo(1, bar=3)')
