@@ -111,6 +111,9 @@ class Transformer(ast.NodeTransformer):
         elif node.type == 'pairlist':
             newnode = CuePairlist(node.recs)
 
+        elif node.type == 'character':
+            newnode = ast.Str(node.content)
+
         return self.visit(newnode)
 
     def visit_CueExpression(self, node):
@@ -286,7 +289,8 @@ def translate(raw):
     
 
 if __name__ == '__main__':
-    print translate('1 < 2')
+    print translate('"foo"')
+    #print translate('1 < 2')
     #print translate('(1 + 2) + 3')
     #print translate('(1)')
     #print translate('foo(c, d, 2)')
