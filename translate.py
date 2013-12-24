@@ -311,7 +311,7 @@ def translate(raw):
     
 
 if __name__ == '__main__':
-    print translate('1 && 2')
+    print translate('1 && 2 || 3')
     #print translate('!1')
     #print translate('1 != 1')
     #print translate('1 < 2')
