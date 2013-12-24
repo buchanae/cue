@@ -1,3 +1,5 @@
+# http://cran.r-project.org/doc/manuals/r-release/R-lang.html
+
 import ast
 from StringIO import StringIO
 import subprocess
@@ -61,10 +63,6 @@ class CueLanguage(ast.AST):
 class CueSymbol(ast.AST):
     _fields = ['content']
 
-class CueBinOp(ast.AST):
-    _fields = ['left', 'right']
-
-class CueAssign(CueBinOp): pass
 
 class CueFunction(ast.AST):
     _fields = ['args', 'body']
@@ -74,6 +72,20 @@ class CueFunction(ast.AST):
         # TODO parse out the body statements
         self.body = [body]
 
+class CueAssign(ast.AST):
+    _fields = ['left', 'right']
+
+class CueAssignOp(ast.operator): pass
+
+
+def add_simple_ops():
+    # Simple CueOp nodes
+    _g = globals()
+    for name in ['Function', 'If', 'Return', 'Block', 'Paren']:
+        name = 'Cue' + name + 'Op'
+        _g[name] = type(name, (ast.AST,), {})
+
+add_simple_ops()
 
 class CueError(Exception): pass
 
@@ -119,89 +131,101 @@ class Transformer(ast.NodeTransformer):
     def visit_CueExpression(self, node):
         return [self.visit(child) for child in node.children]
 
-    def visit_CueLanguage(self, node):
-        children = [self.visit(child) for child in node.children]
-        assert len(children) > 0
+    def visit_CueSymbol(self, node):
+        op_str = node.content
 
-        # TODO should visit children here?
-        first = children[0]
-        rest = children[1:]
-        op_str = first.content
 
-        # TODO there's a difference between vectorized and not
-
-        # Simple binary operation 
-        binary_ops = {
-            '<-': CueAssign,
-            '=': CueAssign,
+        op_map = {
+            # Binary
+            '<-': CueAssignOp,
+            '=': CueAssignOp,
             '*': ast.Mult,
+            # TODO this probably isn't true, unless __future__.division is always
+            #      imported. R also has '%/%' for integer division
             '/': ast.Div,
             '+': ast.Add,
             '-': ast.Sub,
             '%%': ast.Mod,
             '^': ast.Pow,
             '**': ast.Pow,
-        }
 
-        comparison_ops = {
+            # Comparison
             '<': ast.Lt,
             '<=': ast.LtE,
             '>': ast.Gt,
             '>=': ast.GtE,
             '==': ast.Eq,
             '!=': ast.NotEq,
-        }
+            '%in%': ast.In,
+            # R doesn't have a simple equivalent to 'is'
+            # http://stackoverflow.com/questions/10912729/r-object-identity
 
-        unary_ops = {
+            # Unary
             '!': ast.Not,
-        }
 
-        # TODO not handling the vectorized ops '&', '|', etc.
-        bool_ops = {
+            # Boolean
+            # TODO there's a difference between vectorized and not
+            # TODO not handling the vectorized ops '&', '|', etc.
             '&&': ast.And,
             '||': ast.Or,
+
+            # Other
+            'function': CueFunctionOp,
+            'if': CueIfOp,
+            '{': CueBlockOp,
+            '(': CueParenOp,
+            'return': CueReturnOp,
         }
 
-        assert isinstance(first, CueSymbol)
+        try:
+            return op_map[op_str]()
+        except KeyError:
+            return ast.Name(op_str, ast.Load())
 
-        if op_str in binary_ops:
+
+    def visit_CueLanguage(self, node):
+        # TODO should visit children here?
+        children = [self.visit(child) for child in node.children]
+        assert len(children) > 0
+
+        op = children[0]
+        rest = children[1:]
+
+        # TODO could break these out into their own nodes,
+        #      but it doesn't seem critical
+
+        if isinstance(op, ast.operator):
             assert len(rest) == 2
             left, right = rest
-
-            op_cls = binary_ops[op_str]
 
             # Assignment is special in R because it could either be 
             # simple assignment, or a function definition, or ...
-            if op_cls == CueAssign:
+            if isinstance(op, CueAssignOp):
                 newnode = CueAssign(left, right)
             else:
-                newnode = ast.BinOp(left, op_cls(), right)
+                newnode = ast.BinOp(left, op, right)
 
-        elif op_str in comparison_ops:
+        elif isinstance(op, ast.cmpop):
             assert len(rest) == 2
             left, right = rest
+            newnode = ast.Compare(left, [op], [right])
 
-            op_cls = comparison_ops[op_str]
-            newnode = ast.Compare(left, [op_cls()], [right])
-
-        elif op_str in unary_ops:
+        elif isinstance(op, ast.unaryop):
             assert len(rest) == 1
             operand = rest[0]
-            op_cls = unary_ops[op_str]
-            newnode = ast.UnaryOp(op_cls(), operand)
+            newnode = ast.UnaryOp(op, operand)
 
-        elif op_str in bool_ops:
+        elif isinstance(op, ast.boolop):
             assert len(rest) == 2
             left, right = rest
-            op_cls = bool_ops[op_str]
-            newnode = ast.BoolOp(op_cls(), [left, right])
+            newnode = ast.BoolOp(op, [left, right])
 
-        elif op_str == 'function':
+        elif isinstance(op, CueFunctionOp):
             assert len(rest) == 3
             args, body, dontknow = rest
             newnode = CueFunction(args, body, dontknow)
 
-        elif op_str == 'if':
+        elif isinstance(op, CueIfOp):
             assert len(rest) == 2
             cond, body = rest
 
@@ -212,13 +236,14 @@ class Transformer(ast.NodeTransformer):
 
             newnode = ast.If(rest[0], body, None)
 
-        elif op_str == '{':
+        elif isinstance(op, CueBlockOp):
             newnode = CueBody(rest)
 
-        elif op_str == '(':
+        elif isinstance(op, CueParenOp):
+            print rest
             newnode = rest[0]
 
-        elif op_str == 'return':
+        elif isinstance(op, CueReturnOp):
             if not rest:
                 newnode = ast.Return(value=None)
             else:
@@ -226,13 +251,12 @@ class Transformer(ast.NodeTransformer):
                 value = rest[0]
                 newnode = ast.Return(value=value)
 
-        else:
+        elif isinstance(op, ast.Name):
             # TODO this allows invalid function names,
             #      and doesn't catch symbols that aren't functions,
             #      such as '(' and 'read.csv'
 
             # TODO wouldn't support foo(1)(2)
-            name = ast.Name(op_str, ast.Load())
 
             args = []
             for r in rest:
@@ -246,7 +270,10 @@ class Transformer(ast.NodeTransformer):
                 else:
                     raise UnknownError()
 
-            newnode = ast.Call(name, args, [], None, None)
+            newnode = ast.Call(op, args, [], None, None)
+
+        else:
+            raise UnknownError()
 
         return self.visit(newnode)
 
@@ -255,12 +282,12 @@ class Transformer(ast.NodeTransformer):
         # TODO a lot of these assertions should fail as the transformer
         #      develops, i.e. having a symbol on the right-hand side
         #      is totally valid, but I don't handle it yet
-        assert isinstance(node.left, CueSymbol)
         assert not isinstance(node.right, CueSymbol)
 
-        newleft = ast.Name(node.left.content, ast.Store())
+        newleft = ast.Name(node.left.id, ast.Store())
 
         # TODO could be a symbol
+        # TODO move to visit_CueFunction
         if isinstance(node.right, CueFunction):
             arguments = []
 
@@ -269,7 +296,6 @@ class Transformer(ast.NodeTransformer):
                 args = [ast.Name(name, ast.Param()) for name, value, type_ in argslist]
                 arguments = ast.arguments(args, None, None, [])
 
-            # TODO should probably do this stuff in visit_CueFunction
             body = []
             for n in node.right.body:
                 if isinstance(n, ast.stmt):
@@ -281,7 +307,7 @@ class Transformer(ast.NodeTransformer):
                     for expr in n.exprs:
                         body.append(ast.Expr(expr))
 
-            return ast.FunctionDef(node.left.content, arguments, body, [])
+            return ast.FunctionDef(node.left.id, arguments, body, [])
 
         return ast.Assign([newleft], node.right)
 
@@ -311,15 +337,6 @@ def translate(raw):
     
 
 if __name__ == '__main__':
-    print translate('1 && 2 || 3')
-    #print translate('!1')
-    #print translate('1 != 1')
-    #print translate('1 < 2')
-    #print translate('(1 + 2) + 3')
-    #print translate('(1)')
-    #print translate('foo(c, d, 2)')
-    #print translate('if (foo(c, d)) { 2; 2; 2; }')
-    #print translate('funcname <- function(x) { 2; 2 }')
-    #print translate('funcname <- function() foo(1)')
-    #print translate('1, 2')
-    #print translate('foo <- function(x, baz=2, bar=4) { return(x) }; foo(1, bar=3)')
+    #print translate('1 %in% foo')
+    #print translate('funcname <- function(x) return()')
+    print translate('foo(c, d, 1)')
