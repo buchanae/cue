@@ -11,9 +11,18 @@ tests = (
 
     ('1 + 2', '(1 + 2)'),
 
+    # TODO I don't like how unparse adds the extra parens
     ('1 + 2 + 3', '((1 + 2) + 3)'),
 
     ('(1 + 2) + 3', '((1 + 2) + 3)'),
+
+    # TODO unparse should add a newline to be nice
+    ('funcname <- function() 1', 'def funcname():\n    1'),
+
+    ('funcname <- function() return(1)', 'def funcname():\n    return 1'),
+
+    ('funcname <- function() return()', 'def funcname():\n    return'),
+
     #print translate('n <- function() return(1, 2, 3, 4)')
     #'1, 2',
 )

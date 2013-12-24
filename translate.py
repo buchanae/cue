@@ -88,7 +88,6 @@ class Transformer(ast.NodeTransformer):
         return self.visit(newnode)
 
     def visit_CueExpression(self, node):
-        print node, node.children
         return [self.visit(child) for child in node.children]
 
     def visit_CueLanguage(self, node):
@@ -135,7 +134,13 @@ class Transformer(ast.NodeTransformer):
 
 
         elif op_str == 'return':
-            newnode = ast.Return(value=None)
+            print 'return', rest
+            if not rest:
+                newnode = ast.Return(value=None)
+            else:
+                assert len(rest) == 1
+                value = rest[0]
+                newnode = ast.Return(value=value)
 
         else:
             # TODO this allows invalid function names,
@@ -191,6 +196,5 @@ def translate(raw):
     
 
 if __name__ == '__main__':
-    print translate('x <- 1')
-    #print translate('n <- function() return(1, 2, 3, 4)')
+    print translate('func <- function() return(1)')
     #print translate('foo <- function(x, baz=2, bar=4) { return(x) }; foo(1, bar=3)')
