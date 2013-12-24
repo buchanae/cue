@@ -126,11 +126,13 @@ class Transformer(ast.NodeTransformer):
         binary_ops = {
             '<-': CueAssign,
             '=': CueAssign,
-            '%': ast.Mod,
             '*': ast.Mult,
             '/': ast.Div,
             '+': ast.Add,
             '-': ast.Sub,
+            '%%': ast.Mod,
+            '^': ast.Pow,
+            '**': ast.Pow,
         }
 
         assert isinstance(first, CueSymbol)
