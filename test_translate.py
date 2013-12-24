@@ -49,6 +49,14 @@ translations = (
     ('if (1) 2', 'if 1:\n    2'),
 
     ('if (1) { 2; 2 }', 'if 1:\n    2\n    2'),
+
+    ('1 < 2', '(1 < 2)'),
+
+    ('1 > 2', '(1 > 2)'),
+
+    ('1 <= 2', '(1 <= 2)'),
+
+    ('1 >= 2', '(1 >= 2)'),
 )
 
 
@@ -62,6 +70,13 @@ def test_translations():
 
 errors = (
     '1, 2',
+
+    '1 < 2 < 4',
+
+    # TODO this doesn't actually fail because it's valid R syntax
+    #      but it throws an error when eval'd
+    #      Error in return(1, 2, 3) : multi-argument returns are not permitted
+    #'foo <- function() return(1, 2, 3)',
 )
 
 def expect_cue_error(raw):

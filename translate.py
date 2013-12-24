@@ -125,6 +125,7 @@ class Transformer(ast.NodeTransformer):
         rest = children[1:]
         op_str = first.content
 
+        # TODO there's a difference between vectorized and not
 
         # Simple binary operation 
         binary_ops = {
@@ -137,6 +138,14 @@ class Transformer(ast.NodeTransformer):
             '%%': ast.Mod,
             '^': ast.Pow,
             '**': ast.Pow,
+        }
+
+        comparison_ops = {
+            '<': ast.Lt,
+            '<=': ast.LtE,
+            '>': ast.Gt,
+            '>=': ast.GtE,
+            '==': ast.Eq,
         }
 
         assert isinstance(first, CueSymbol)
@@ -153,6 +162,13 @@ class Transformer(ast.NodeTransformer):
                 newnode = CueAssign(left, right)
             else:
                 newnode = ast.BinOp(left, op_cls(), right)
+
+        elif op_str in comparison_ops:
+            assert len(rest) == 2
+            left, right = rest
+
+            op_cls = comparison_ops[op_str]
+            newnode = ast.Compare(left, [op_cls()], [right])
 
 
         elif op_str == 'function':
@@ -270,7 +286,8 @@ def translate(raw):
     
 
 if __name__ == '__main__':
-    print translate('(1 + 2) + 3')
+    print translate('1 < 2')
+    #print translate('(1 + 2) + 3')
     #print translate('(1)')
     #print translate('foo(c, d, 2)')
     #print translate('if (foo(c, d)) { 2; 2; 2; }')
